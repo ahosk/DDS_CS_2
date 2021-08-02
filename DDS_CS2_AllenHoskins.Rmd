@@ -1,0 +1,371 @@
+---
+title: "DDS CS2"
+author: "Allen Hoskins"
+date: "7/21/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Chunk 1: loading in packages used in markdown file
+```{r}
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(magrittr)
+library(ggExtra)
+library(e1071)
+library(class)
+library(ggthemes)
+library(naniar)
+library(PerformanceAnalytics)
+library(corrplot)
+library(RColorBrewer)
+library(funModeling)
+library(gridExtra)
+library(stringr)
+library(plyr)
+library(janitor)
+library(devtools)
+library(rpart)
+library(caTools)
+library(randomForest)
+library(lattice)
+library(rmarkdown)
+library(scales)
+library(readxl)
+```
+
+# Chunk 2: Loading in full file and looking at basic summary statistics
+```{r}
+
+# reading in data
+df = read_csv('~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2-data.csv')
+
+#looking at high level summary stats of columns
+head(df)
+summary(df)
+str(df)
+
+# checking for null values in columns
+colSums(is.na(df))
+gg_miss_var(df,show_pct = TRUE)
+
+# normalizing  column
+df = df %>% mutate(BusinessTravel = ifelse(BusinessTravel == 'Non_Travel','No','Yes'))
+
+```
+
+# Chunk 3: EDA Graphs
+## In this chunk, I several ggplots to determine which fields would best determine employee attrition.
+```{r}
+df %>% ggplot()+
+  geom_boxplot(aes(x=Attrition, y=MonthlyIncome, fill=Attrition), alpha=0.7)+
+  ggtitle("Attrition by Monthly Income")+
+  scale_y_continuous(name='Monthly Income')+
+  theme(plot.title=element_text(size=20, color="Black"))+
+  scale_fill_manual(values=c("Green","Red"))
+
+df %>% ggplot()+
+  geom_boxplot(aes(x=Attrition, y=MonthlyRate), col=c("Green", "Red"), alpha=0.7)+
+  ggtitle("Attrition by Monthly Rate")+
+  scale_y_continuous(name="Monthly Rate")+
+  theme(plot.title=element_text(size=20, color="Black"))
+
+# Environment Satisfaction v Attrition BOX PLOT
+df %>% ggplot()+
+  geom_boxplot(aes(x=Attrition, y=EnvironmentSatisfaction, fill=Attrition), alpha=0.7)+
+  ggtitle("Attrition by Monthly Income")+
+  scale_y_continuous(name='Environment Satisfaction')+
+  theme(plot.title=element_text(size=20, color="Black"))+
+  scale_fill_manual(values=c("Green","Red"))
+
+
+df %>% ggplot()+
+  geom_point(aes(x=JobLevel, y=DailyRate, color=Attrition), alpha=0.7)+ 
+  ggtitle("Monthly Income vs Age vs Years in Current Role")+
+  scale_y_continuous(name="Years in Current Role")+
+  theme(plot.title=element_text(size=20, color="Black")) +
+  scale_color_manual(values=c("Green","Red"))
+
+ df %>% ggplot()+
+  geom_point(aes(x=DailyRate, y=YearsInCurrentRole, color=Attrition), alpha=0.7,position = 'jitter')+ 
+  ggtitle("Monthly Income vs Age vs Years in Current Role")+
+  scale_y_continuous(name="Years in Current Role")+
+  theme(plot.title=element_text(size=20, color="Black")) +
+  scale_color_manual(values=c("Green","Red"))
+
+df %>% ggplot()+
+  geom_point(aes(x=NumCompaniesWorked ,y =YearsInCurrentRole ,color = Attrition),alpha = 0.7,position = 'jitter')+
+  ggtitle('Environmental Satisfaction v Years in Current Role')
+
+df %>% ggplot()+
+  geom_point(aes(x=YearsInCurrentRole ,y = YearsWithCurrManager ,color = Attrition),alpha = 0.7,position = 'jitter')+
+  ggtitle('Environmental Satisfaction v Years in Current Role')
+
+# Relationship between attrition and overtime
+
+overtime = df%>%
+  group_by(OverTime)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=scales::percent(n/sum(n)))
+overtime
+
+ggplot(data=df, aes(x=OverTime, fill=Attrition))+
+  geom_bar(alpha=0.7)+
+  geom_text(data=overtime, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle("Attrition by Overtime")+
+  scale_x_discrete(name="Overtime")+
+  scale_y_continuous(name="# of Employees")+
+  theme(plot.title=element_text(size=20, color="Black"))+
+  scale_fill_manual(values=c("Green", "Red"))
+  
+# Relationship between monthly income, work life balance, and attrition
+
+ df %>%
+  mutate(Attrition=ifelse(Attrition=="Yes"," Yes (140)","No (730)"))%>%
+ggplot()+
+  geom_boxplot(aes(x=Attrition, y=MonthlyIncome, fill=Attrition), alpha=0.7)+
+  ggtitle("Attrition by Monthly Income")+
+  scale_y_continuous(name='Monthly Income')+
+  theme(plot.title=element_text(size=20, color="Black"))+
+  scale_fill_manual(values=c("Green","Red"))
+ 
+ # Determining if Attrition is based off of Income (Monthly Rate and Income)
+p = df %>%
+  mutate(Attrition=ifelse(Attrition=="Yes"," Yes (140)","No (730)"))%>%
+  ggplot()+
+  geom_boxplot(aes(x=Attrition, y=MonthlyIncome, fill=Attrition), alpha=0.7)+
+  ggtitle("Attrition by Monthly Income")+
+  scale_y_continuous(name='Monthly Income')+
+  theme(plot.title=element_text(size=15, color="Black"))+
+  scale_fill_manual(values=c("Green","Red"))
+p
+
+p0 = df %>%
+  mutate(Attrition=ifelse(Attrition=="Yes"," Yes (140)","No (730)"))%>%
+  ggplot()+
+  geom_boxplot(aes(x=Attrition, y=MonthlyRate, fill = Attrition), alpha=0.7)+
+  ggtitle("Attrition by Monthly Rate")+
+  scale_y_continuous(name="Monthly Rate")+
+  theme(plot.title=element_text(size=15, color="Black"))+
+scale_fill_manual(values=c("Green","Red"))
+p0
+
+grid.arrange(p,p0)
+
+
+#Attrition based on job level
+
+level = df%>%
+  group_by(JobLevel)%>%
+  count(Attrition)%>%
+  mutate(AttritionRate=percent(n/sum(n)))
+level
+
+df %>%
+  ggplot( aes(x=JobLevel, fill=Attrition))+
+  geom_bar(alpha=0.7)+
+  geom_text(data=level, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
+  ggtitle("Attrition by Job Level")+
+  scale_x_discrete(name="Job Level", labels = df$JobLevel)+
+  scale_y_continuous(name="# of employees")+
+  theme(plot.title=element_text(size=20, color="Black"))+
+  scale_fill_manual(values=c("Green", "Red"))
+
+```
+
+
+# Chunk 4: KNN Model
+## In this chunk, I ran a KNN classification model which had poor specificity, meaning that the false negatives are extremely high. Hover the accuracy was extremly high at 84% and the Sensitivity was 99.59%.
+
+```{r}
+
+dfKNN= read.csv('~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2-data.csv',header = TRUE)
+set.seed(57)
+
+#Using 
+
+splitPerc = .70
+trainAttrKNN= sample(1:dim(dfKNN)[1],round(splitPerc * dim(dfKNN)[1]))
+trainKNN = dfKNN[trainAttrKNN,]
+testKNN = dfKNN[-trainAttrKNN,]
+
+
+
+#creation of KNN model using leave one out method
+classification = knn.cv(dfKNN[,c(2,6,14,16,18,20,22)],dfKNN$Attrition,prob = TRUE, k = 9)
+table(classification,dfKNN$Attrition)
+confusionMatrix(table(classification,dfKNN$Attrition))
+
+# determining best k 
+
+set.seed(57)
+#running KNN model 90 times to find best k parameter 
+accs = data.frame(accuracy = numeric(90), k = numeric(90))
+
+for(i in 1:90)
+{
+   classification = knn.cv(dfKNN[,c(2,14,16,18,20,22)],dfKNN$Attrition,prob = TRUE, k = i)
+   table(classification,dfKNN$Attrition)
+   CM = confusionMatrix(table(classification,dfKNN$Attrition))
+  accs$accuracy[i] = CM$overall[1]
+  accs$k[i] = i
+}
+
+plot(accs$k,accs$accuracy, type = "l", xlab = "k")
+abline(v=accs$k[which.max(accs$accuracy)], col="red")
+accs$k[which.max(accs$accuracy)]
+
+set.seed(57)
+
+#use tuned parameter from code above
+classification = knn.cv(df[,c(2,14,16,18,20,22)],dfKNN$Attrition,prob = TRUE, k = 19)
+table(classification,dfKNN$Attrition)
+confusionMatrix(table(classification,dfKNN$Attrition))
+
+```
+
+
+# Chunk 5: Naive Bayes 
+## In this chunk, I ran a Naive Bayes  model. This model had similar accuracy to the KNN model run above (85%), but it's specificity was 98% compared to the KNN of 4.2%. The Naive Bayes model had a Sensitivity of 14.6%, while the KNN model's Sensitivity was 99.17%.
+
+```{r}
+
+set.seed(57)
+
+dfNB = read.csv("~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2-data.csv", header = TRUE)
+dfNBNO= read.csv("~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Attrition.csv", header = TRUE)
+
+dfNB$Attrition =  factor(as.character(dfNB$Attrition), levels=c('Yes', 'No'))
+
+#70/30 Split of data
+splitPerc = .70
+trainAttrNB= sample(1:dim(dfNB)[1],round(splitPerc * dim(dfNB)[1]))
+trainNB = dfRF[trainAttrRF,]
+testNB = dfRF[-trainAttrRF,]
+
+
+model = naiveBayes(trainNB[,c(2,4,5,15,20)],trainNB$Attrition)
+table(predict(model,testNB[,c(2,4,5,15,20)]),testNB$Attrition)
+confusionMatrix(table(predict(model,testNB[,c(2,4,5,15,20)]),testNB$Attrition))
+
+```
+
+# Chunk 6: Random Forest Predicting Attrition
+## In this chunk I ran a Random Forest model, which performed better than both the KNN and Random Forest models. The Accuracy was slightly lower at 80.8%, but Sensitivity and Specificity were both over 60%, 61.5% and 84.2% respectifully.
+```{r}
+
+set.seed(57)
+
+dfRF = read.csv("~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2-data.csv", header = TRUE)
+dfRFNO= read.csv("~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Attrition.csv", header = TRUE)
+
+#Ensure Attrition is changed to factor
+dfRF$Attrition =  factor(as.character(dfRF$Attrition), levels=c('Yes', 'No'))
+
+#Split test and train data - 70/30
+splitPerc = .70
+trainAttrition= sample(1:dim(dfRF)[1],round(splitPerc * dim(dfRF)[1]))
+trainRF = dfRF[trainAttrition,]
+testRF = dfRF[-trainAttrition,]
+
+#Apply Random Forest using Monthly Income to test data
+EmpAttRF = randomForest(Attrition ~ .-MonthlyRate,
+                      data=trainRF, 
+                      strata=trainRF$Attrition,
+                      sampsize= c(55,55))
+
+#Use newly trained data set to predict test set
+AttPredRF = predict(EmpAttRF,newdata= testRF)
+
+#Create confusion matrix to assess accuracy stats
+confusionMatrix(AttPredRF, testRF$Attrition)
+
+#checking importance of variables
+varImp(EmpAttRF)
+varImpPlot(EmpAttRF)
+
+#Apply Random Forest to the output file
+EmpAttRF2 = randomForest(Attrition ~ .-MonthlyRate,
+                       data=dfRF,
+                       strata=dfRF$Attrition,
+                       sampsize= c(55,55))
+
+AttPredRF2 = predict(EmpAttRF2,newdata= dfRFNO)
+EmpAttrPredRF = data.frame(dfRFNO$ID, AttPredRF2)
+AttPredRF2
+
+write.csv(AttPredRF2, "~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/Case2PredictionsHoskinsAttrition.csv")
+
+```
+
+# Chunk 7: Random Forest Model for Salary Prediction
+##  In this chunk I ran a Random Forest  model to predict Salary for associates. I started off using all fields and determined the variable importance using varIMP function. After determining which fiels were best for this model(JobLevel, TotalWorkingYears, and Age), I reran the model to achice a RMSE of 1278.822. 
+```{r}
+
+#Random Forest for Predicting Salary
+
+SalaryRF = randomForest(MonthlyIncome ~ .-MonthlyRate, data=trainRF)
+
+rfPredictSalary = predict(SalaryRF, newdata= testRF)
+rfPredictSalary
+
+RMSE(testRF$MonthlyIncome, rfPredictSalary)
+plot(testRF$MonthlyIncome, rfPredictSalary, type = "p", main= "Random Forest RMSE for Predicting Salary", xlab= "Monthly Income", ylab= "Monthly Income Prediction")
+
+varImp(SalaryRF)
+varImpPlot(SalaryRF)
+
+#random forest model 2: Updating inputs
+
+SalaryRF2 = randomForest(MonthlyIncome ~ JobLevel+TotalWorkingYears+Age, data=trainRF)
+
+rfPredictSalary2 = predict(SalaryRF2, newdata= testRF)
+rfPredictSalary2
+
+varImp(SalaryRF2)
+varImpPlot(SalaryRF2)
+
+#RMSE of Random Forest model for predicting salary
+
+RMSE(testRF$MonthlyIncome, rfPredictSalary2)
+plot(testRF$MonthlyIncome, rfPredictSalary2, type = "p", main= "Random Forest RMSE for Predicting Salary", xlab= "Monthly Income", ylab= "Monthly Income Prediction")
+
+```
+
+# Chunk 8: Linear Regression for Salary Model
+## In this chunk I ran an linear regression model to predict salary. When running this LR model, I was able to return a RMSE of 1333.81. This model performed similarly to the Random Forest model, but was slighly less accurate.
+```{r}
+#Linear regression model
+
+SalaryRM =lm(MonthlyIncome ~ JobLevel+TotalWorkingYears+Age, data=trainRF)
+lmPredictSalary= predict(SalaryRM, newdata= testRF)
+lmPredictSalary
+
+RMSE(testRF$MonthlyIncome, lmPredictSalary)
+plot(testRF$MonthlyIncome, lmPredictSalary, type = "p", main= "Linear Regression Model for Predicting Salary", xlab= "Monthly Income", ylab= "Monthly Income Prediction")
+abline(SalaryRM)
+summary(lmPredictSalary)
+
+```
+
+# Chunk 9: Running RF Model for Salary Prediction
+## In this chunk, I ran the dataset with No Salary information in it against my tuned Random Forest model.
+```{r}
+#Load in Data set with no salary information 
+
+NOSalary = read_xlsx('~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2CompSet No Salary.xlsx')
+
+#Apply Random Forest to the output file
+SalPredRFFinal = predict(SalaryRF2,
+                      newdata= NOSalary)
+Case2PredictionsHoskinsSalary = data.frame(NOSalary$ID, SalPredRFFinal)
+Case2PredictionsHoskinsSalary
+
+```
+
+# Chunk 10: Writing Prediction to CSV
+```{r}
+write.csv(Case2PredictionsHoskinsSalary, "~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/Case2PredictionsHoskinsSalary.csv")
+```
