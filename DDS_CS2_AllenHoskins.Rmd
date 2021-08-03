@@ -2,9 +2,8 @@
 title: "DDS CS2"
 author: "Allen Hoskins"
 date: "7/21/2021"
-output: html_document
-editor_options: 
-  chunk_output_type: console
+output:
+  html_document: default
 ---
 
 # Chunk 1: loading in packages used in markdown file
@@ -51,7 +50,7 @@ str(df)
 colSums(is.na(df))
 gg_miss_var(df,show_pct = TRUE)
 
-# normalizing  column
+# normalizing column
 df = df %>% mutate(BusinessTravel = ifelse(BusinessTravel == 'Non_Travel','No','Yes'))
 
 ```
@@ -59,6 +58,7 @@ df = df %>% mutate(BusinessTravel = ifelse(BusinessTravel == 'Non_Travel','No','
 # Chunk 3: EDA Graphs
 ## In this chunk, I several ggplots to determine which fields would best determine employee attrition.
 ```{r}
+
 df %>% ggplot()+
   geom_boxplot(aes(x=Attrition, y=MonthlyIncome, fill=Attrition), alpha=0.7)+
   ggtitle("Attrition by Monthly Income")+
@@ -67,59 +67,60 @@ df %>% ggplot()+
   scale_fill_manual(values=c("Green","Red"))
 
 df %>% ggplot()+
-  geom_boxplot(aes(x=Attrition, y=MonthlyRate), col=c("Green", "Red"), alpha=0.7)+
+  geom_boxplot(aes(x=Attrition, y=MonthlyRate, fill = Attrition), alpha=0.7)+
   ggtitle("Attrition by Monthly Rate")+
   scale_y_continuous(name="Monthly Rate")+
+  scale_fill_manual(values=c("Green","Red"))+
   theme(plot.title=element_text(size=20, color="Black"))
 
-# Environment Satisfaction v Attrition BOX PLOT
+# Environment Satisfaction v Attrition
 df %>% ggplot()+
   geom_boxplot(aes(x=Attrition, y=EnvironmentSatisfaction, fill=Attrition), alpha=0.7)+
-  ggtitle("Attrition by Monthly Income")+
+  ggtitle("Attrition by Envoronment Satisfaction")+
   scale_y_continuous(name='Environment Satisfaction')+
   theme(plot.title=element_text(size=20, color="Black"))+
   scale_fill_manual(values=c("Green","Red"))
 
 
 df %>% ggplot()+
-  geom_point(aes(x=JobLevel, y=DailyRate, color=Attrition), alpha=0.7)+ 
-  ggtitle("Monthly Income vs Age vs Years in Current Role")+
+  geom_point(aes(x=JobLevel, y=DailyRate, color=Attrition), alpha=0.7)+
+  ggtitle("Job Level vs Daily Rate")+
   scale_y_continuous(name="Years in Current Role")+
   theme(plot.title=element_text(size=20, color="Black")) +
   scale_color_manual(values=c("Green","Red"))
 
  df %>% ggplot()+
-  geom_point(aes(x=DailyRate, y=YearsInCurrentRole, color=Attrition), alpha=0.7,position = 'jitter')+ 
-  ggtitle("Monthly Income vs Age vs Years in Current Role")+
+  geom_point(aes(x=DailyRate, y=YearsInCurrentRole, color=Attrition), alpha=0.7,position = 'jitter')+
+  ggtitle("Daily Rate vs Years in Current Role")+
   scale_y_continuous(name="Years in Current Role")+
   theme(plot.title=element_text(size=20, color="Black")) +
   scale_color_manual(values=c("Green","Red"))
 
 df %>% ggplot()+
   geom_point(aes(x=NumCompaniesWorked ,y =YearsInCurrentRole ,color = Attrition),alpha = 0.7,position = 'jitter')+
-  ggtitle('Environmental Satisfaction v Years in Current Role')
+  ggtitle('Number of Companies Worked vs Years in Current Role')+
+    scale_color_manual(values=c("Green","Red"))
 
 df %>% ggplot()+
   geom_point(aes(x=YearsInCurrentRole ,y = YearsWithCurrManager ,color = Attrition),alpha = 0.7,position = 'jitter')+
-  ggtitle('Environmental Satisfaction v Years in Current Role')
+  ggtitle('Years in Current Role vs Years with Current Manager')
 
 # Relationship between attrition and overtime
-
 overtime = df%>%
   group_by(OverTime)%>%
   count(Attrition)%>%
-  mutate(AttritionRate=scales::percent(n/sum(n)))
+  mutate(AttritionRate=percent(n/sum(n)))
 overtime
 
-ggplot(data=df, aes(x=OverTime, fill=Attrition))+
+df %>% ggplot(aes(x=OverTime, fill=Attrition))+
   geom_bar(alpha=0.7)+
   geom_text(data=overtime, aes(y=n,label=AttritionRate), position=position_stack(vjust=0.5), size=3)+
   ggtitle("Attrition by Overtime")+
   scale_x_discrete(name="Overtime")+
-  scale_y_continuous(name="# of Employees")+
+  scale_y_continuous(name="Number of Employees")+
   theme(plot.title=element_text(size=20, color="Black"))+
   scale_fill_manual(values=c("Green", "Red"))
-  
+
 # Relationship between monthly income, work life balance, and attrition
 
  df %>%
@@ -130,7 +131,7 @@ ggplot()+
   scale_y_continuous(name='Monthly Income')+
   theme(plot.title=element_text(size=20, color="Black"))+
   scale_fill_manual(values=c("Green","Red"))
- 
+
  # Determining if Attrition is based off of Income (Monthly Rate and Income)
 p = df %>%
   mutate(Attrition=ifelse(Attrition=="Yes"," Yes (140)","No (730)"))%>%
@@ -182,9 +183,8 @@ df %>%
 ```{r}
 
 dfKNN= read.csv('~/Desktop/MSDS/Doing Data Science/MSDS_6306_Doing-Data-Science-Master/Unit 14 and 15 Case Study 2/CaseStudy2-data.csv',header = TRUE)
-set.seed(57)
 
-#Using 
+set.seed(57)
 
 splitPerc = .70
 trainAttrKNN= sample(1:dim(dfKNN)[1],round(splitPerc * dim(dfKNN)[1]))
